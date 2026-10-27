@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slice of Pi — Find your number in π</title>
+  <meta name="description" content="Type any digit string and watch the camera fly through a galaxy of π's digits to the exact place your number first appears. Powered by a suffix array over 100 million digits." />
+  <meta property="og:title" content="Slice of Pi" />
+  <meta property="og:description" content="Find your number hiding in the digits of π." />
+  <meta name="theme-color" content="#0b0d1a" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Canvas layer (galaxy) ── -->
+  <canvas id="main-canvas" aria-hidden="true"></canvas>
+
+  <!-- ── Flight progress bar ── -->
+  <div id="flight-progress" aria-hidden="true">
+    <div id="flight-bar"></div>
+  </div>
+
+  <!-- ── Top navigation bar ── -->
+  <header id="top-bar" aria-label="Quick controls">
+    <div class="top-brand"><span>Slice</span> of Pi</div>
+    <div class="top-actions">
+      <button id="btn-toggle-lines" class="top-btn" aria-label="Toggle constellation lines between points" title="Join points across the spiral">
+        ☍ Connect Spiral
+      </button>
+      <button id="btn-top-search" class="top-btn primary hidden" aria-label="Search another number">
+        🔍 New Search
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Hero / search UI ── -->
+  <div id="ui-layer">
+    <main id="hero" role="main">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span class="badge-text">100,000,000 DIGITS • CELESTIAL PHYLLOTAXIS ARCHIVE</span>
+      </div>
+
+      <h1 class="hero-title">
+        Cosmic Phyllotaxis <span class="gradient-text">π Explorer</span>
+      </h1>
+      <p class="hero-sub">
+        Navigate across 100 million digits arranged along a golden-ratio spiral galaxy. Enter any sequence to launch real-time deep-space flight.
+      </p>
+
+      <form id="search-form" role="search" aria-label="Search for a digit string in pi">
+        <div id="search-wrap">
+          <label for="search-input" class="sr-only" style="position:absolute;left:-9999px">
+            Enter digit string
+          </label>
+          <span class="search-terminal-icon" aria-hidden="true">⌖</span>
+          <input
+            id="search-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="50"
+            placeholder="Type any digits (e.g. 2026)"
+            aria-label="Digit string to find in pi"
+          />
+          <button id="search-btn" type="submit" aria-label="Launch flight">
+            Launch Flight ↗
+          </button>
+        </div>
+
+        <!-- Example chips -->
+        <div id="chips" role="group" aria-label="Example digit strings">
+          <button type="button" class="chip" data-q="2026" aria-label="Try 2026">
+            <span class="chip-label">EPOCH</span>2026
+          </button>
+          <button type="button" class="chip" data-q="271828" aria-label="Try 271828">
+            <span class="chip-label">EULER e</span>271828
+          </button>
+          <button type="button" class="chip" data-q="314159" aria-label="Try 314159">
+            <span class="chip-label">ORIGIN π</span>314159
+          </button>
+          <button type="button" class="chip" data-q="420691" aria-label="Try 420691">
+            <span class="chip-label">WAYPOINT</span>420691
+          </button>
+          <button type="button" class="chip" data-q="999999" aria-label="Try 999999">
+            <span class="chip-label">FEYNMAN</span>999999
+          </button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <!-- ── HUD result card ── -->
+  <div id="hud" class="hidden" role="region" aria-label="Search result">
+    <div id="hud-card">
+      <div id="hud-main">
+        <div class="hud-header-line">
+          <div id="hud-headline" aria-live="polite"></div>
+          <div id="hud-meta"></div>
+        </div>
+        <div id="hud-surrounding" aria-label="Surrounding digits in pi"></div>
+        <div id="hud-coords-breakdown" aria-label="Digit coordinates"></div>
+      </div>
+      <div id="hud-controls">
+        <button id="btn-new-search" class="ctrl-btn new-search" aria-label="Search another number">🔍 New Search</button>
+        <button id="btn-replay"     class="ctrl-btn primary"    aria-label="Replay flight animation">↺ Replay</button>
+        <button id="btn-explore"    class="ctrl-btn"            aria-label="Explore galaxy freely">⊕ Explore</button>
+        <button id="btn-hud-lines"  class="ctrl-btn"            aria-label="Toggle constellation lines">☍ Connect Spiral</button>
+        <button id="btn-share"      class="ctrl-btn"            aria-label="Copy share link">⤢ Share</button>
+        <button id="btn-save"       class="ctrl-btn"            aria-label="Save card">↓ Save card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer id="footer" aria-label="Site footer">
+    <span class="footer-brand"><span>Slice</span> of Pi</span>
+    <button
+      id="how-it-works-link"
+      class="footer-link"
+      aria-label="Open How it Works modal"
+      style="background:none;border:none;cursor:pointer;color:inherit;font:inherit"
+    >How it works</button>
+  </footer>
+
+  <!-- ── How It Works modal ── -->
+  <div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div id="modal">
+      <button id="modal-close" aria-label="Close modal">✕</button>
+      <h2 id="modal-title">How it works</h2>
+
+      <h3>The Phyllotaxis Spiral</h3>
+      <p>
+        Each of the 100&nbsp;million digits in π is laid out in a
+        <em>phyllotaxis spiral</em> — the same pattern found in sunflower seeds.
+        Digit <em>i</em> sits at radius <code>r = c·√i</code> and angle
+        <code>θ = i · 137.508°</code> (the golden angle). This places every
+        digit at a unique, computable position in O(1) time.
+      </p>
+
+      <h3>Colour legend</h3>
+      <p>Each digit 0–9 has a unique perceptual colour:</p>
+      <div id="colour-legend" class="colour-legend" aria-label="Digit colour legend"></div>
+
+      <h3>Search index</h3>
+      <p>
+        Short queries (≤ 7 digits) are answered in O(1) using pre-built
+        direct-address tables. Longer queries use binary search on a
+        <em>suffix array</em> over all 100&nbsp;million digits — a sorted
+        index of every possible starting position. The SA occupies
+        ~400&nbsp;MB on disk and is never fully loaded into RAM (memory-mapped).
+      </p>
+
+      <h3>Why long numbers may not be found</h3>
+      <p>
+        A random <em>k</em>-digit string appears in N digits of π about once
+        every 10<sup>k</sup> digits. With 100M digits indexed, a 9-digit
+        string has a ~63% chance of appearing, a 12-digit string has ~0.01%.
+        Numbers not found are shown with their longest matching prefix and the
+        expected position in a longer π expansion.
+      </p>
+
+      <h3>Position convention</h3>
+      <p>
+        <strong>Position 1</strong> is the first digit after the decimal point
+        (the "1" in 3.<strong>1</strong>4159…). The integer part "3" is not
+        stored.
+      </p>
+
+      <h3>Memory sizing</h3>
+      <ul>
+        <li>Digit file: <strong>N bytes</strong> (1 byte/digit)</li>
+        <li>Suffix array: <strong>~4N bytes</strong> (uint32 for N&nbsp;&lt;&nbsp;4B)</li>
+        <li>Tier-1 tables k=1..7: <strong>~43&nbsp;MB</strong> total</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ── ARIA live region ── -->
+  <div id="aria-live" aria-live="assertive" aria-atomic="true"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
