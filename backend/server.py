@@ -16,6 +16,7 @@ or (from backend/ directory):
 
 import json
 import math
+import struct
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from typing import Any
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 import search as _search
@@ -116,6 +118,49 @@ def api_digits(
     return {"digits": digits, "start": start, "count": len(digits)}
 
 
+@app.get("/api/digits_bin")
+def api_digits_bin(
+    start: int = Query(..., ge=1, description="1-indexed start position"),
+    count: int = Query(..., ge=1, le=1_000_000, description="Number of digits (max 1,000,000)"),
+):
+    """Return raw digit values 0-9 as bytes (not ASCII)."""
+    if start > _search._N:
+        raise HTTPException(status_code=404, detail="start exceeds N")
+
+    # Clamp count so we don't go past end
+    available = _search._N - (start - 1)
+    count = min(count, available)
+
+    # Read from mmap: start is 1-indexed, mmap is 0-indexed
+    raw = bytes(_search._digits_mm[start - 1 : start - 1 + count])
+    # Subtract 48 to convert ASCII digits to raw 0-9 values
+    data = bytes(b - 48 for b in raw)
+
+    return Response(
+        content=data,
+        media_type="application/octet-stream",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+@app.get("/api/overview_bin")
+def api_overview_bin():
+    """Return overview samples as binary: 4-byte big-endian uint32 pos + 1-byte digit per sample."""
+    samples = _overview_cache["samples"]
+    buf = bytearray(5 * len(samples))
+    offset = 0
+    for s in samples:
+        struct.pack_into(">I", buf, offset, s["pos"])
+        buf[offset + 4] = s["digit"]
+        offset += 5
+
+    return Response(
+        content=bytes(buf),
+        media_type="application/octet-stream",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @app.get("/api/search")
 def api_search(q: str = Query(..., min_length=1, max_length=50)):
     """
@@ -164,5 +209,8 @@ def api_search(q: str = Query(..., min_length=1, max_length=50)):
 # Serve frontend static files (production mode)
 # ---------------------------------------------------------------------------
 
-if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
+FRONTEND_DIST = FRONTEND_DIR / "dist"
+if FRONTEND_DIST.exists() and (FRONTEND_DIST / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="static")
+elif FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")

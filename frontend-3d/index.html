@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>π</text></svg>" />
+  <title>Slice of Pi — Find your number in π</title>
+  <meta name="description" content="Type any digit string and watch the camera fly through a 3D galaxy of π's digits to the exact place your number first appears." />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+  <!-- WebGL Canvas Layer -->
+  <canvas id="canvas" aria-hidden="true"></canvas>
+
+  <!-- Flight Progress Bar -->
+  <div id="flight-progress" aria-hidden="true">
+    <div id="flight-bar"></div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header id="top-bar" aria-label="Quick controls">
+    <div class="top-brand"><span>Slice</span> of Pi</div>
+    <div class="top-actions">
+      <button id="btn-toggle-lines" class="top-btn" aria-label="Toggle constellation lines between points" title="Join points across the spiral">
+        ✦ Connect Spiral
+      </button>
+      <button id="ctrl-mode" class="top-btn" aria-label="Toggle 2D or 3D view mode">
+        3D
+      </button>
+      <button id="btn-top-search" class="top-btn primary hidden" aria-label="Search another number">
+        ⊕ New Search
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero / Search UI Layer -->
+  <div id="ui-layer">
+    <main id="hero" role="main">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span class="badge-text" id="hero-badge-n">1,000,000 DIGITS • CELESTIAL PHYLLOTAXIS ARCHIVE</span>
+      </div>
+
+      <h1 class="hero-title">
+        Cosmic Phyllotaxis <span class="gradient-text">π Explorer</span>
+      </h1>
+      <p class="hero-sub">
+        Navigate across digits arranged along a golden-ratio spiral galaxy. Enter any sequence to launch real-time deep-space 3D flight.
+      </p>
+
+      <form id="search-form" role="search" aria-label="Search for a digit string in pi" onsubmit="return false;">
+        <div id="search-wrap">
+          <label for="search-input" class="sr-only" style="position:absolute;left:-9999px">
+            Enter digit string
+          </label>
+          <span class="search-terminal-icon" aria-hidden="true">⌖</span>
+          <input
+            id="search-input"
+            name="q"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="50"
+            placeholder="Type any digits (e.g. 2026)"
+            aria-label="Digit string to find in pi"
+          />
+          <button id="search-btn" type="button" aria-label="Launch flight">
+            Launch Flight ↗
+          </button>
+        </div>
+
+        <!-- Example chips -->
+        <div id="chips" role="group" aria-label="Example digit strings">
+          <button type="button" class="chip" data-q="2026" aria-label="Try 2026">
+            <span class="chip-label">EPOCH</span>2026
+          </button>
+          <button type="button" class="chip" data-q="271828" aria-label="Try 271828">
+            <span class="chip-label">EULER e</span>271828
+          </button>
+          <button type="button" class="chip" data-q="314159" aria-label="Try 314159">
+            <span class="chip-label">ORIGIN π</span>314159
+          </button>
+          <button type="button" class="chip" data-q="420691" aria-label="Try 420691">
+            <span class="chip-label">WAYPOINT</span>420691
+          </button>
+          <button type="button" class="chip" data-q="999999" aria-label="Try 999999">
+            <span class="chip-label">FEYNMAN</span>999999
+          </button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <!-- HUD Result Card -->
+  <div id="hud" class="hidden" role="region" aria-label="Search result">
+    <div id="hud-card">
+      <div id="hud-main">
+        <div class="hud-header-line">
+          <div id="hud-headline" aria-live="polite"></div>
+          <div id="hud-meta"></div>
+        </div>
+        <div id="hud-surrounding" aria-label="Surrounding digits in pi"></div>
+        <div id="hud-coords-breakdown" aria-label="Digit coordinates"></div>
+      </div>
+      <div id="hud-controls">
+        <button id="btn-new-search" class="ctrl-btn new-search" aria-label="Search another number">⊕ New Search</button>
+        <button id="btn-replay"     class="ctrl-btn primary"    aria-label="Replay flight animation">↺ Replay</button>
+        <button id="btn-explore"    class="ctrl-btn"            aria-label="Explore galaxy freely">🔭 Explore</button>
+        <button id="btn-hud-lines"  class="ctrl-btn"            aria-label="Toggle constellation lines">✦ Connect Spiral</button>
+        <button id="btn-toggle-mode" class="ctrl-btn"           aria-label="Toggle 2D or 3D mode">⊞ 3D / 2D</button>
+        <button id="btn-share"      class="ctrl-btn"            aria-label="Copy share link">⎘ Share</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spinner indicator -->
+  <div id="spinner"></div>
+
+  <!-- Toast message -->
+  <div id="toast"></div>
+
+  <!-- WebGL2 unavailable fallback -->
+  <div id="no-webgl" style="display:none;position:fixed;inset:0;background:#050712;place-items:center;z-index:1000;text-align:center;padding:2rem;">
+    <div>
+      <p style="font-size:2.5rem;margin-bottom:1rem">⚠️</p>
+      <p style="font-size:1.2rem;color:#dde3f8">WebGL2 is not enabled in this browser.</p>
+      <p style="margin-top:0.5rem;font-size:0.9rem;color:#8ca0ff">Please use Brave, Chrome, Firefox, or Edge with hardware acceleration enabled.</p>
+    </div>
+  </div>
+
+  <!-- ARIA live announce -->
+  <div aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)" id="aria-live"></div>
+
+  <script type="module" src="/src/main3d.js"></script>
+</body>
+</html>
