@@ -16,7 +16,7 @@ Slice of Pi is a high-performance web platform designed to index, query, and vis
 ---
 
 
-![Landing_page](src/screenshots\01_landing_enhanced.png)
+![Landing_page](src/screenshots/01_landing_enhanced.png)
 ---
 ## Key Features
 
