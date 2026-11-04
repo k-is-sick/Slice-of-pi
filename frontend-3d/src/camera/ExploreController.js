@@ -133,6 +133,8 @@ export class ExploreController {
     };
 
     const onKeyDown = e => {
+      const tag = (document.activeElement?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
       this._keys[e.code] = true;
     };
     const onKeyUp = e => {

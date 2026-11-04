@@ -27,7 +27,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
-import search as _search
+try:
+    from backend import search as _search
+except ImportError:
+    import search as _search
 
 DATA_DIR = Path(__file__).parent / "data"
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"

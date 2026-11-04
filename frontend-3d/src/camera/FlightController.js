@@ -11,12 +11,12 @@
  */
 
 import * as THREE from 'three';
-import { phyllotaxisPos } from '../math.js';
+import { positionToSphere, SPHERE_R } from '../math.js';
 import { easeInOut } from '../math.js';
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const FLIGHT_DURATION = REDUCED_MOTION ? 0 : 4500;  // ms
-const ARRIVE_DISTANCE = 30;  // world units from target at rest
+const ARRIVE_DISTANCE = 35;  // world units above sphere surface (sphere R=100, so camera at ~135)
 const BASE_FOV = 60;
 const PEAK_FOV_KICK = 8;  // degrees wider at peak speed
 
@@ -48,17 +48,21 @@ export class FlightController {
   }
 
   /**
-   * Fly to the phyllotaxis position of digit index `digitIndex` (0-based).
-   * zScale: current 3D z scale.
+   * Fly to the sphere-surface position of digit at 1-indexed position `pos1`.
+   * zScale: unused (sphere coords are independent of z-scale).
    */
-  flyTo(digitIndex, zScale, onComplete) {
+  flyTo(pos1, zScale, onComplete) {
     const myId = ++this._searchId;
-    const { x, y, z } = phyllotaxisPos(digitIndex, zScale);
+    const { x, y, z } = positionToSphere(pos1);  // pos1 is 1-indexed
 
     this._endTarget.set(x, y, z);
-    // Camera lands ARRIVE_DISTANCE away from the target, looking inward
+    // Camera lands ARRIVE_DISTANCE above the sphere surface, looking inward at the target
     const dir = this._endTarget.clone().normalize();
-    this._endPos.set(x - dir.x * ARRIVE_DISTANCE, y - dir.y * ARRIVE_DISTANCE, z + ARRIVE_DISTANCE * 0.5);
+    this._endPos.set(
+      x + dir.x * ARRIVE_DISTANCE,
+      y + dir.y * ARRIVE_DISTANCE,
+      z + dir.z * ARRIVE_DISTANCE,
+    );
 
     this._startPos.copy(this.position);
     this._startTarget.copy(this.target);

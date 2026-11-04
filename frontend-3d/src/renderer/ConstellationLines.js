@@ -1,10 +1,10 @@
 /**
- * ConstellationLines.js — Joins the phyllotaxis spiral points with glowing
- * constellation lines. Stride-sampled for smooth 60 FPS performance.
+ * ConstellationLines.js — Joins the points with glowing cyan constellation lines.
+ * Stride-sampled for smooth 60 FPS performance.
  */
 
 import * as THREE from 'three';
-import { phyllotaxisPos } from '../math.js';
+import { SPHERE_R, positionToSphere, slerpSphere } from '../math.js';
 
 export class ConstellationLines {
   constructor(scene) {
@@ -39,15 +39,25 @@ export class ConstellationLines {
   _rebuildLines() {
     this.clear();
 
-    // Sample ~1,200 points along the spiral
-    const COUNT = 1200;
-    const pts = [];
+    const COUNT = 100;
+    const stride = Math.floor(1000000 / COUNT);
+    const waypoints = [];
 
-    // Logarithmic distribution to cover both core and outer spiral
     for (let i = 0; i < COUNT; i++) {
-      const idx = Math.floor(i * 18);
-      const { x, y, z } = phyllotaxisPos(idx, this._zScale);
-      pts.push(new THREE.Vector3(x, y, z));
+      const pos1 = 1 + i * stride;
+      waypoints.push(positionToSphere(pos1, SPHERE_R));
+    }
+
+    const pts = [];
+    const samplesPerSeg = 8;
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      const pA = waypoints[i];
+      const pB = waypoints[i + 1];
+      for (let s = 0; s < samplesPerSeg; s++) {
+        const t = s / samplesPerSeg;
+        const p = slerpSphere(pA, pB, t, SPHERE_R + 0.25);
+        pts.push(new THREE.Vector3(p.x, p.y, p.z));
+      }
     }
 
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -97,4 +107,3 @@ export class ConstellationLines {
     this.clear();
   }
 }
-

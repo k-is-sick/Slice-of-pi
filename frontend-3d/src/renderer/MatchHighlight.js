@@ -1,14 +1,16 @@
 /**
  * MatchHighlight.js — High-visibility matched digit visualization in 3D:
  * 1. Pulsing golden/cyan core rings around ALL matched digit positions
- * 2. Connecting constellation line between the consecutive digits of the query
+ * 2. Connecting data-driven great-circle arcs (SLERP) across the sphere surface
  * 3. Individual 3D position badges for ALL digits showing:
  *    - Digit value (e.g. '2')
  *    - Exact position (e.g. '#3,118')
  */
 
 import * as THREE from 'three';
-import { phyllotaxisPos } from '../math.js';
+import { SPHERE_R, computeDigitTrajectory, generateGreatCirclePath } from '../math.js';
+
+const MAX_DISPLAY = 10;
 
 const PALETTE_COLORS = [
   '#f87171', // 0
@@ -31,7 +33,7 @@ function makePositionBadgeTexture(digitChar, positionNum, colorHex) {
   canvas.height = h;
   const ctx = canvas.getContext('2d');
 
-  // Background rounded badge
+  // Background rounded badge (original radiant styling)
   ctx.fillStyle = 'rgba(6, 10, 32, 0.94)';
   ctx.strokeStyle = colorHex || '#7ee8fa';
   ctx.lineWidth = 3.5;
@@ -47,7 +49,7 @@ function makePositionBadgeTexture(digitChar, positionNum, colorHex) {
   ctx.textBaseline = 'middle';
   ctx.fillText(digitChar, w / 2, 24);
 
-  // Position number (#3118)
+  // Position number (#3,118)
   ctx.fillStyle = '#e2e8f0';
   ctx.font = 'bold 14px "JetBrains Mono", monospace';
   ctx.fillText(`#${positionNum.toLocaleString()}`, w / 2, 48);
@@ -70,7 +72,7 @@ export class MatchHighlight {
   }
 
   /**
-   * Highlight all consecutive digits of the matched sequence.
+   * Highlight all consecutive digits of the matched sequence with data-driven spherical arcs.
    * @param {number} startPos1 1-indexed start position in pi
    * @param {string} matchStr the matched string of digits (e.g. "2026")
    * @param {number} zScale current zScale
@@ -80,18 +82,17 @@ export class MatchHighlight {
     if (!startPos1 || !matchStr || matchStr.length === 0) return;
     this._active = true;
 
-    const count = matchStr.length;
-    const pts = [];
+    // Cap displayed digits to avoid clutter
+    const displayStr = matchStr.slice(0, MAX_DISPLAY);
+    const count = displayStr.length;
 
-    // Calculate exact 3D position for EVERY digit in the matched sequence
-    for (let k = 0; k < count; k++) {
-      const idx0 = (startPos1 - 1) + k;
-      const { x, y, z } = phyllotaxisPos(idx0, zScale);
-      pts.push(new THREE.Vector3(x, y, z));
-    }
+    // 1. Data-Driven Trajectory Waypoints on Sphere Surface
+    const waypoints = computeDigitTrajectory(startPos1, displayStr, SPHERE_R);
+    if (!waypoints || waypoints.length === 0) return;
 
-    // ── 1. Pulsing Rings on EVERY matched digit ──────────────────────────────
-    const dotGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    // ── 1. Pulsing Glowing Rings on EVERY matched digit ─────────────────────
+    const dotPts = waypoints.map(p => new THREE.Vector3(p.x, p.y, p.z));
+    const dotGeo = new THREE.BufferGeometry().setFromPoints(dotPts);
 
     const dotMat = new THREE.ShaderMaterial({
       vertexShader: /* glsl */`
@@ -124,22 +125,25 @@ export class MatchHighlight {
     this._dotMesh = new THREE.Points(dotGeo, dotMat);
     this._scene.add(this._dotMesh);
 
-    // ── 2. Connecting Lines Between Consecutive Digits ───────────────────────
-    if (pts.length >= 2) {
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    // ── 2. Connecting Great-Circle Arcs Between Consecutive Digits ───────────
+    if (waypoints.length >= 2) {
+      const arcPoints = generateGreatCirclePath(waypoints, 16, SPHERE_R + 0.35);
+      const linePts = arcPoints.map(p => new THREE.Vector3(p.x, p.y, p.z));
+
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(linePts);
       const lineMat = new THREE.LineBasicMaterial({
         color: 0x7ee8fa,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.80,
         depthWrite: false,
       });
       this._lineMesh = new THREE.Line(lineGeo, lineMat);
       this._scene.add(this._lineMesh);
     }
 
-    // ── 3. Position Badges for ALL Digits ────────────────────────────────────
+    // ── 3. Position Badges for ALL Digits (Surface Normal Stems) ─────────────
     for (let k = 0; k < count; k++) {
-      const ch = matchStr[k];
+      const ch = displayStr[k];
       const d = parseInt(ch, 10);
       const colorHex = !isNaN(d) ? PALETTE_COLORS[d] : '#7ee8fa';
       const currentPos1 = startPos1 + k;
@@ -153,15 +157,19 @@ export class MatchHighlight {
       });
 
       const sprite = new THREE.Sprite(spriteMat);
-      const p = pts[k];
-      sprite.position.set(p.x, p.y + 3.2, p.z + 0.8);
+      const p = waypoints[k];
+      const len = Math.hypot(p.x, p.y, p.z) || 1;
+      const nx = p.x / len, ny = p.y / len, nz = p.z / len;
+      const offset = 6.0;
+
+      sprite.position.set(p.x + nx * offset, p.y + ny * offset, p.z + nz * offset);
       sprite.scale.set(4.5, 2.25, 1.0);
       this._badgeGroup.add(sprite);
 
-      // Vertical stem connecting badge to exact dot position
+      // Connecting stem line from dot to badge along normal
       const stemGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(p.x, p.y, p.z),
-        new THREE.Vector3(p.x, p.y + 2.0, p.z + 0.8),
+        new THREE.Vector3(p.x + nx * offset * 0.65, p.y + ny * offset * 0.65, p.z + nz * offset * 0.65),
       ]);
       const stemMat = new THREE.LineBasicMaterial({
         color: 0x7ee8fa,

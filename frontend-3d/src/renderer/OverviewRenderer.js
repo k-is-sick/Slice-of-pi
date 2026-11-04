@@ -7,15 +7,13 @@
 import * as THREE from 'three';
 import { DIGIT_PALETTE } from '../constants.js';
 import { apiOverview } from '../api.js';
-import { phyllotaxisPos } from '../math.js';
+import { positionToSphere, SPHERE_R } from '../math.js';
 
 const VERT = /* glsl */`
 precision highp float;
 attribute vec3 aPosition;
 attribute float aDigit;
 
-uniform float zScale;
-uniform float pointSize;
 uniform float alpha;
 uniform vec3 palette[10];
 
@@ -23,13 +21,11 @@ varying vec3 vColor;
 varying float vA;
 
 void main() {
-  vec3 pos = aPosition;
-  pos.z *= zScale;
-  vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+  vec4 mvPosition = modelViewMatrix * vec4(aPosition, 1.0);
   gl_Position = projectionMatrix * mvPosition;
 
   float dist = length(mvPosition.xyz);
-  gl_PointSize = clamp(pointSize * 80.0 / max(dist, 1.0), 1.5, 9.0);
+  gl_PointSize = clamp(90.0 / max(dist, 1.0), 1.0, 6.0);
 
   int d = int(aDigit);
   vColor = palette[d];
@@ -71,8 +67,7 @@ export class OverviewRenderer {
 
       for (let i = 0; i < N; i++) {
         const s = samples[i];
-        const idx = s.pos - 1;
-        const { x, y, z } = phyllotaxisPos(idx, 1.0);
+        const { x, y, z } = positionToSphere(s.pos);
         positions[i * 3]     = x;
         positions[i * 3 + 1] = y;
         positions[i * 3 + 2] = z;
@@ -87,8 +82,6 @@ export class OverviewRenderer {
         vertexShader: VERT,
         fragmentShader: FRAG,
         uniforms: {
-          zScale:    { value: 1.0 },
-          pointSize: { value: 1.0 },
           alpha:     { value: 1.0 },
           palette:   { value: this._palette },
         },
@@ -108,7 +101,6 @@ export class OverviewRenderer {
   update(zScale, alpha = 1.0) {
     if (!this._mesh) return;
     const u = this._mesh.material.uniforms;
-    u.zScale.value = zScale;
     u.alpha.value = alpha;
   }
 

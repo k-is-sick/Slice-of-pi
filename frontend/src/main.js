@@ -135,6 +135,57 @@ function wireUIEvents() {
     });
   }
 
+  // Type-to-Search (Auto-focus and type into search bar anywhere on the page)
+  window.addEventListener('keydown', e => {
+    const active = document.activeElement;
+    const activeTag = (active?.tagName || '').toLowerCase();
+    if (activeTag === 'input' || activeTag === 'textarea' || active?.isContentEditable) {
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      return;
+    }
+    if (!searchInput) return;
+
+    if (e.key && e.key.length === 1) {
+      if (heroEl && heroEl.classList.contains('hidden')) {
+        heroEl.classList.remove('hidden');
+        if (typeof hideHUD === 'function') hideHUD();
+        searchInput.value = '';
+      }
+
+      e.preventDefault();
+      searchInput.focus();
+
+      const start = searchInput.selectionStart ?? searchInput.value.length;
+      const end = searchInput.selectionEnd ?? searchInput.value.length;
+      const currentVal = searchInput.value;
+      searchInput.value = currentVal.slice(0, start) + e.key + currentVal.slice(end);
+      const newPos = start + e.key.length;
+      searchInput.setSelectionRange(newPos, newPos);
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+
+    if (e.key === 'Backspace') {
+      if (heroEl && !heroEl.classList.contains('hidden')) {
+        e.preventDefault();
+        searchInput.focus();
+        const start = searchInput.selectionStart ?? searchInput.value.length;
+        const end = searchInput.selectionEnd ?? searchInput.value.length;
+        const currentVal = searchInput.value;
+        if (start === end && start > 0) {
+          searchInput.value = currentVal.slice(0, start - 1) + currentVal.slice(end);
+          searchInput.setSelectionRange(start - 1, start - 1);
+        } else if (start !== end) {
+          searchInput.value = currentVal.slice(0, start) + currentVal.slice(end);
+          searchInput.setSelectionRange(start, start);
+        }
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+  });
+
   // Modal handlers
   const howItWorksBtn = document.getElementById('how-it-works-link');
   if (howItWorksBtn) howItWorksBtn.addEventListener('click', openModal);

@@ -22,7 +22,7 @@ import { FlightController } from './camera/FlightController.js';
 import { ExploreController } from './camera/ExploreController.js';
 import { apiSearch, apiMeta } from './api.js';
 import { showHUD, hideHUD, showToast } from './hud.js';
-import { phyllotaxisPos } from './math.js';
+import { phyllotaxisPos, positionToSphere, assertSphereMapping, SPHERE_R } from './math.js';
 import { QUALITY_PRESETS, currentQuality, setQuality } from './constants.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -99,6 +99,9 @@ const highlight = new MatchHighlight(scene);
 const constellation = new ConstellationLines(scene);
 constellation.setZScale(zScale);
 
+// Runtime assertion: verify all sphere mappings are correct
+assertSphereMapping();
+
 // Camera Controllers
 const flightCtrl = new FlightController(camera);
 const exploreCtrl = new ExploreController(camera, canvas);
@@ -141,12 +144,13 @@ function frame(now) {
   const dist = camPos.length();
 
   // 2. Overview vs Local Chunks LOD Cross-Fade
-  const showOverview = dist > 140;
-  const overviewAlpha = Math.min(1, Math.max(0, (dist - 100) / 100));
+  // Sphere R=100; show overview when camera is >145 from center, fade in from 110-145
+  const showOverview = dist > 145;
+  const overviewAlpha = Math.min(1, Math.max(0, (dist - 110) / 55));
   overview.update(zScale, showOverview ? overviewAlpha : 0.0);
-  overview.setVisible(showOverview);
+  overview.setVisible(dist > 110);
 
-  if (dist < 220) {
+  if (dist < 240) {
     chunks.update(camera, camPos);
   }
 
@@ -192,21 +196,18 @@ async function doSearch(q) {
     showHUD(data, mode, constellation.isActive());
 
     if (data.found) {
-      const targetPos = data.position - 1; // 0-indexed
-
       // Highlight all matched dots with pulsing rings and 3D badges
       highlight.show(data.position, data.query, zScale);
 
-      // Launch camera flight
-      flightCtrl.flyTo(targetPos, zScale, arrivalTarget => {
+      // Launch camera flight to sphere-surface position
+      flightCtrl.flyTo(data.position, zScale, arrivalTarget => {
         exploreCtrl.setTargetAndDistance(arrivalTarget, 35);
         showToast(`Arrived at position #${data.position.toLocaleString()}`);
       });
     } else if (data.longest_prefix_position) {
-      const targetPos = data.longest_prefix_position - 1;
       highlight.show(data.longest_prefix_position, data.longest_prefix || '', zScale);
 
-      flightCtrl.flyTo(targetPos, zScale, arrivalTarget => {
+      flightCtrl.flyTo(data.longest_prefix_position, zScale, arrivalTarget => {
         exploreCtrl.setTargetAndDistance(arrivalTarget, 35);
         showToast('Flew to longest matching prefix');
       });
@@ -230,7 +231,7 @@ function toggleConstellation() {
   if (btnTop) btnTop.classList.toggle('active', active);
   if (btnHud) btnHud.classList.toggle('active', active);
 
-  showToast(`Constellation lines: ${active ? 'ON' : 'OFF'}`);
+  showToast(`✦ Constellation lines: ${active ? 'ON' : 'OFF'}`);
   return active;
 }
 
@@ -285,6 +286,65 @@ if (inputEl) {
   });
 }
 
+// ── Type-to-Search (Auto-focus and type into search bar anywhere on the page) ──
+window.addEventListener('keydown', e => {
+  const active = document.activeElement;
+  const activeTag = (active?.tagName || '').toLowerCase();
+  if (activeTag === 'input' || activeTag === 'textarea' || active?.isContentEditable) {
+    return;
+  }
+
+  // Do not intercept browser/system shortcut combinations (Ctrl+C, Cmd+R, Alt+Tab, etc.)
+  if (e.ctrlKey || e.metaKey || e.altKey) {
+    return;
+  }
+
+  if (!inputEl) return;
+
+  // Single printable characters (digits, letters, symbols)
+  if (e.key && e.key.length === 1) {
+    const heroEl = document.getElementById('hero');
+    if (heroEl && heroEl.classList.contains('hidden')) {
+      heroEl.classList.remove('hidden');
+      hideHUD();
+      highlight.clear();
+      inputEl.value = '';
+    }
+
+    e.preventDefault();
+    inputEl.focus();
+
+    const start = inputEl.selectionStart ?? inputEl.value.length;
+    const end = inputEl.selectionEnd ?? inputEl.value.length;
+    const currentVal = inputEl.value;
+    inputEl.value = currentVal.slice(0, start) + e.key + currentVal.slice(end);
+    const newPos = start + e.key.length;
+    inputEl.setSelectionRange(newPos, newPos);
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
+  // Backspace when input is not focused but hero search bar is visible
+  if (e.key === 'Backspace') {
+    const heroEl = document.getElementById('hero');
+    if (heroEl && !heroEl.classList.contains('hidden')) {
+      e.preventDefault();
+      inputEl.focus();
+      const start = inputEl.selectionStart ?? inputEl.value.length;
+      const end = inputEl.selectionEnd ?? inputEl.value.length;
+      const currentVal = inputEl.value;
+      if (start === end && start > 0) {
+        inputEl.value = currentVal.slice(0, start - 1) + currentVal.slice(end);
+        inputEl.setSelectionRange(start - 1, start - 1);
+      } else if (start !== end) {
+        inputEl.value = currentVal.slice(0, start) + currentVal.slice(end);
+        inputEl.setSelectionRange(start, start);
+      }
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+});
+
 // Suggestion chips
 const chipsEl = document.getElementById('chips');
 if (chipsEl) {
@@ -325,8 +385,8 @@ document.getElementById('btn-toggle-mode')?.addEventListener('click', toggleMode
 // Replay button
 document.getElementById('btn-replay')?.addEventListener('click', () => {
   if (!lastSearchData) return;
-  const targetPos = (lastSearchData.found ? lastSearchData.position : lastSearchData.longest_prefix_position) - 1;
-  flightCtrl.flyTo(targetPos, zScale, arrivalTarget => {
+  const pos1 = lastSearchData.found ? lastSearchData.position : lastSearchData.longest_prefix_position;
+  flightCtrl.flyTo(pos1, zScale, arrivalTarget => {
     exploreCtrl.setTargetAndDistance(arrivalTarget, 35);
   });
 });

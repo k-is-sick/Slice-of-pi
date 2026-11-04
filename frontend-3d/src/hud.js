@@ -2,7 +2,7 @@
  * hud.js — Result HUD card renderer with full position breakdown and styling.
  */
 
-import { phyllotaxisPos } from './math.js';
+import { SPHERE_R, positionToSphere, computeDigitTrajectory } from './math.js';
 
 const PALETTE_CSS = [
   '#f87171', // 0
@@ -116,7 +116,8 @@ export function showHUD(data, mode, linesActive = false) {
       indices.push(0, 1, 2, 3, -1, matchStr.length - 2, matchStr.length - 1);
     }
 
-    const zScale = mode === '2d' ? 0 : 1;
+    const waypoints = computeDigitTrajectory(startPos, matchStr, SPHERE_R);
+
     for (const idx of indices) {
       if (idx === -1) {
         pills.push(`<span class="coord-ellipsis">+${matchStr.length - 6} more digits</span>`);
@@ -126,12 +127,16 @@ export function showHUD(data, mode, linesActive = false) {
       const ch = matchStr[idx];
       const d = parseInt(ch, 10);
       const color = PALETTE_CSS[d] || '#7ee8fa';
-      const { x, y } = phyllotaxisPos(pos1 - 1, zScale);
+      const pt = waypoints[idx] || positionToSphere(pos1, SPHERE_R);
+
+      // Convert to lat/lon for display
+      const lat = (Math.asin(Math.max(-1, Math.min(1, pt.y / SPHERE_R))) * 180 / Math.PI).toFixed(1);
+      const lon = (Math.atan2(pt.z, pt.x) * 180 / Math.PI).toFixed(1);
       pills.push(`
-        <div class="coord-pill" title="Digit '${ch}' at position #${fmt(pos1)} (x: ${x.toFixed(1)}, y: ${y.toFixed(1)})">
+        <div class="coord-pill" title="Digit '${ch}' at position #${fmt(pos1)} (lat: ${lat}°, lon: ${lon}°)">
           <span class="coord-digit" style="color:${color}">${ch}</span>
           <span class="coord-pos">#${fmt(pos1)}</span>
-          <span class="coord-xy">(${x > 0 ? '+' : ''}${x.toFixed(1)}, ${y > 0 ? '+' : ''}${y.toFixed(1)})</span>
+          <span class="coord-xy">(${lat > 0 ? '+' : ''}${lat}°, ${lon > 0 ? '+' : ''}${lon}°)</span>
         </div>
       `);
     }

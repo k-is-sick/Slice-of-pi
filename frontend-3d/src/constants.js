@@ -37,10 +37,12 @@ export const DIGIT_PALETTE = [
   [0.65, 0.65, 0.80],  // 9 — periwinkle
 ];
 
+const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+
 export const QUALITY_PRESETS = {
-  high:   { pixelRatio: Math.min(window.devicePixelRatio, 2), starCount: 120000, bloom: true,  grain: true,  shadows: false },
-  medium: { pixelRatio: Math.min(window.devicePixelRatio, 1.5), starCount: 80000,  bloom: false, grain: true,  shadows: false },
-  low:    { pixelRatio: 1,                                       starCount: 40000,  bloom: false, grain: false, shadows: false },
+  high:   { pixelRatio: Math.min(dpr, 2),   starCount: 120000, bloom: true,  grain: true,  shadows: false },
+  medium: { pixelRatio: Math.min(dpr, 1.5), starCount: 80000,  bloom: false, grain: true,  shadows: false },
+  low:    { pixelRatio: 1,                  starCount: 40000,  bloom: false, grain: false, shadows: false },
 };
 
 export let currentQuality = 'medium';
