@@ -1,5 +1,5 @@
 # Slice of Pi
-![logo](src\Slice-of-pi-banner.jpg)
+![logo](src/Slice-of-pi-banner.jpg)
 
 Sub-millisecond pattern search and GPU-accelerated 3D celestial visualization for the decimal expansion of pi.
 
@@ -16,7 +16,7 @@ Slice of Pi is a high-performance web platform designed to index, query, and vis
 ---
 
 
-![Landing_page](src\screenshots\01_landing_enhanced.png)
+![Landing_page](src/screenshots\01_landing_enhanced.png)
 ---
 ## Key Features
 
