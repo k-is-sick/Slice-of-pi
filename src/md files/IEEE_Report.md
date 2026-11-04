@@ -4,7 +4,7 @@
 
 **k-is-sick**  
 *Department of Computer Science and Software Engineering*  
-`https://github.com/k-is-sick/Slice_of_pi`  
+`https://github.com/k-is-sick/Slice-of-pi`  
 
 </div>
 
